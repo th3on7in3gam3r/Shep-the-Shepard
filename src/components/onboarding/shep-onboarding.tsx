@@ -68,7 +68,7 @@ export function ShepOnboarding() {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-black/45 p-4 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[100] flex items-end justify-center bg-black/45 p-4 pb-[calc(5rem+env(safe-area-inset-bottom)+1rem)] backdrop-blur-sm sm:items-center sm:pb-4"
       role="dialog"
       aria-modal="true"
       aria-labelledby="shep-onboarding-title"
