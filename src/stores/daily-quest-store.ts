@@ -8,6 +8,7 @@ import {
   getQuestProgress,
   isQuestComplete,
 } from "@/lib/daily-quests";
+import { track } from "@/lib/analytics";
 import { useStreakStore } from "@/stores/streak-store";
 
 type CompletedTasks = Partial<Record<QuestTaskId, boolean>>;
@@ -47,6 +48,7 @@ export const useDailyQuestStore = create<DailyQuestState>()(
 
         const nextTasks = { ...completedTasks, [taskId]: true };
         const allDone = isQuestComplete(nextTasks);
+        track("quest_task_complete", { task: taskId });
 
         if (allDone && !questCompletedAt) {
           useStreakStore.getState().recordQuestComplete();

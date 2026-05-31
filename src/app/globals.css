@@ -478,3 +478,41 @@
   --shepherd-sage: oklch(0.78 0.12 145);
   --shepherd-meadow: oklch(0.25 0.04 145);
 }
+
+@keyframes quest-complete-pop {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.02);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.animate-quest-complete-pop {
+  animation: quest-complete-pop 0.55s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
+  .animate-shep-blink,
+  .animate-shep-hero-idle-bob,
+  .animate-gentle-bounce,
+  .animate-shep-verse-float,
+  .animate-shep-cloud-drift,
+  .animate-shep-tail-wag,
+  .animate-shep-enter,
+  .animate-quest-complete-pop {
+    animation: none !important;
+  }
+}

@@ -3,10 +3,12 @@
 import Link from "next/link";
 import {
   BookMarked,
+  BookOpen,
   ChevronRight,
   Flame,
   Heart,
   MessageCircle,
+  ScrollText,
   Settings,
   Timer,
 } from "lucide-react";
@@ -71,6 +73,25 @@ export function DashboardView() {
           <Button variant="ghost" size="icon-sm" aria-label="Settings">
             <Settings className="size-5 text-muted-foreground" />
           </Button>
+        </Link>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <Link href="/journal">
+          <Card className="h-full transition-colors hover:bg-shepherd-meadow/20">
+            <CardContent className="flex items-center gap-2 p-3">
+              <ScrollText className="size-4 text-shepherd-sage" />
+              <span className="text-sm font-medium">Journal</span>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/saved">
+          <Card className="h-full transition-colors hover:bg-shepherd-meadow/20">
+            <CardContent className="flex items-center gap-2 p-3">
+              <BookOpen className="size-4 text-shepherd-sage" />
+              <span className="text-sm font-medium">Saved verses</span>
+            </CardContent>
+          </Card>
         </Link>
       </div>
 

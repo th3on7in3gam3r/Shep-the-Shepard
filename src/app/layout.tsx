@@ -5,7 +5,9 @@ import { SupabaseProvider } from "@/components/providers/supabase-provider";
 import { ThemeInit } from "@/components/theme-init";
 import { ThemeSync } from "@/components/theme-sync";
 import { HighContrastSync } from "@/components/settings/high-contrast-sync";
-import { APP_NAME, APP_TAGLINE } from "@/lib/constants";
+import { AnalyticsProvider } from "@/components/analytics/analytics-provider";
+import { APP_NAME } from "@/lib/constants";
+import { defaultSiteMetadata } from "@/lib/site-metadata";
 import "./globals.css";
 
 const dmSans = DM_Sans({
@@ -19,11 +21,7 @@ const lora = Lora({
 });
 
 export const metadata: Metadata = {
-  title: {
-    default: APP_NAME,
-    template: `%s · ${APP_NAME}`,
-  },
-  description: APP_TAGLINE,
+  ...defaultSiteMetadata,
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
@@ -66,6 +64,7 @@ export default function RootLayout({
             <ThemeSync />
             <HighContrastSync />
             {children}
+            <AnalyticsProvider />
           </SupabaseProvider>
         </ThemeProvider>
       </body>

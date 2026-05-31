@@ -299,40 +299,6 @@ export function SettingsView() {
 
       <Card>
         <CardHeader className="pb-2">
-          <CardTitle className="text-base">Notifications</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <SettingRow
-            label="Daily verse reminder"
-            description="Morning encouragement — coming soon"
-          >
-            <Switch
-              checked={false}
-              disabled
-              onCheckedChange={() => {}}
-              aria-label="Daily verse reminder (coming soon)"
-            />
-          </SettingRow>
-          <SettingRow
-            label="Devotion reminder"
-            description="Daily devotion nudge — coming soon"
-          >
-            <Switch
-              checked={false}
-              disabled
-              onCheckedChange={() => {}}
-              aria-label="Devotion reminder (coming soon)"
-            />
-          </SettingRow>
-          <p className="text-[11px] text-muted-foreground">
-            Push notifications aren&apos;t available yet. These toggles will activate once
-            we add a notification backend with the PWA service worker.
-          </p>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-2">
           <CardTitle className="text-base">Appearance</CardTitle>
         </CardHeader>
         <CardContent>

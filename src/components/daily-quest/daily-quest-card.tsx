@@ -1,7 +1,10 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, ChevronRight, Circle, Flame, Sparkles } from "lucide-react";
+import { track } from "@/lib/analytics";
+import { todayKey } from "@/lib/date-utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ShepAvatar } from "@/components/shep-avatar";
@@ -32,11 +35,25 @@ export function DailyQuestCard({ className, compact = false }: DailyQuestCardPro
   const { done, total } = getQuestProgress(completedTasks);
   const complete = !!questCompletedAt;
   const progressPct = total > 0 ? Math.round((done / total) * 100) : 0;
+  const [celebrate, setCelebrate] = useState(false);
+  const celebratedRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!complete) return;
+    const key = todayKey();
+    if (celebratedRef.current === key) return;
+    celebratedRef.current = key;
+    setCelebrate(true);
+    track("quest_complete", { streak: currentStreak });
+    const timer = setTimeout(() => setCelebrate(false), 2400);
+    return () => clearTimeout(timer);
+  }, [complete, currentStreak]);
 
   return (
     <Card
       className={cn(
         "bg-gradient-to-br from-shepherd-meadow/35 via-shepherd-cream/50 to-shepherd-sky/20 dark:from-shepherd-sage/15 dark:via-card dark:to-card",
+        celebrate && "animate-quest-complete-pop ring-2 ring-shepherd-sage/50",
         className,
       )}
     >
@@ -49,9 +66,14 @@ export function DailyQuestCard({ className, compact = false }: DailyQuestCardPro
           <Badge
             variant="outline"
             className="gap-1 border-shepherd-sage/30 bg-background/60 text-[10px] font-medium"
+            title={
+              currentStreak === 0
+                ? "Complete all three quest tasks today to start your streak"
+                : undefined
+            }
           >
             <Flame className="size-3 text-orange-500" />
-            {currentStreak} day{currentStreak === 1 ? "" : "s"}
+            {currentStreak === 0 ? "No streak yet" : `${currentStreak} day${currentStreak === 1 ? "" : "s"}`}
           </Badge>
         </div>
         <p className="text-xs font-medium text-shepherd-sage">{theme.title}</p>

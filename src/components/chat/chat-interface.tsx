@@ -26,6 +26,7 @@ import { getLastAssistantText, getMessageText, dedupeChatMessages } from "@/lib/
 import { useChatContextStore } from "@/stores/chat-context-store";
 import { useChatStore } from "@/stores/chat-store";
 import { ChatContextBanner, GuidedFlowPanel } from "@/components/chat/guided-flow-panel";
+import { FirstTokenIndicator } from "@/components/chat/typing-indicator";
 import { useActivityStore } from "@/stores/activity-store";
 import { useDailyQuestStore } from "@/stores/daily-quest-store";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -34,6 +35,8 @@ import { useStudySession } from "@/hooks/use-study-session";
 import { useMeadowAmbient } from "@/hooks/use-meadow-ambient";
 import { getSeasonalShepLine } from "@/lib/seasonal-content";
 import { SHEP_FULL_NAME } from "@/lib/constants";
+import { track } from "@/lib/analytics";
+import { pickShepBaa } from "@/lib/shep-baa";
 import { cn } from "@/lib/utils";
 
 /** Matches `Button size="icon-sm"` footprint for stable SSR/client layout. */
@@ -154,6 +157,7 @@ export function ChatInterface() {
   const isClient = useIsClient();
   const [input, setInput] = useState("");
   const [welcomeMood, setWelcomeMood] = useState(true);
+  const welcomeBaa = useMemo(() => pickShepBaa(), []);
   const [holding, setHolding] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -265,14 +269,16 @@ export function ChatInterface() {
     return useChatStore.persist.onFinishHydration(hydrate);
   }, [isClient, setMessages]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, status, isThinking]);
-
   const lastAssistant = messages.filter((m) => m.role === "assistant").at(-1);
   const lastUser = messages.filter((m) => m.role === "user").at(-1);
   const streamingText =
     isStreaming && lastAssistant ? getMessageText(lastAssistant) : "";
+  const awaitingFirstToken = isThinking && !streamingText.trim();
+  const streamStarted = isStreaming && !!streamingText.trim();
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, status, awaitingFirstToken, streamStarted]);
 
   useEffect(() => {
     if (
@@ -307,6 +313,7 @@ export function ChatInterface() {
       const trimmed = text.trim();
       if (!trimmed || isLoading) return;
       stopSpeaking();
+      track("chat_send");
       sendMessage({ text: trimmed });
       completeQuestTask("connect");
       logActivity({
@@ -427,10 +434,11 @@ export function ChatInterface() {
   const getStatusText = () => {
     if (!isClient) return `${SHEP_FULL_NAME} is here for you`;
     if (welcomeMood && messages.length === 0)
-      return "Baa! I'm Shep the Shepherd — hold to speak or tap the mic.";
+      return `${welcomeBaa} I'm Shep the Shepherd — hold to speak or tap the mic.`;
     if (holding || isListening) return "I'm listening…";
     if (isSpeaking) return "Speaking to you…";
-    if (isThinking) return "Grazing on God's Word…";
+    if (awaitingFirstToken) return "Waiting for Shep's first word…";
+    if (streamStarted) return "Shep is responding…";
     if (isStreaming) return "Sharing wisdom…";
     return getSeasonalShepLine("chat-idle") ?? `${SHEP_FULL_NAME} is here for you`;
   };
@@ -518,12 +526,20 @@ export function ChatInterface() {
       {/* Streaming / voice transcript */}
       <ScrollArea className="mt-3 min-h-0 flex-1">
         <div className="space-y-3 px-1 pb-2">
+          {isClient && awaitingFirstToken && <FirstTokenIndicator />}
+
           {displayLine && (
             <p
               className="rounded-xl bg-shepherd-meadow/25 px-3 py-2 font-serif text-sm leading-relaxed text-foreground/90"
               suppressHydrationWarning
             >
               {displayLine}
+              {isClient && streamStarted && (
+                <span className="ml-1.5 inline-flex items-center gap-1 text-[10px] font-medium text-shepherd-sage/80">
+                  <span className="size-1.5 rounded-full bg-shepherd-sage animate-pulse" />
+                  live
+                </span>
+              )}
               {isClient && isStreaming && (
                 <span className="ml-0.5 inline-block animate-pulse">▍</span>
               )}

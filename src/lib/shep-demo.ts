@@ -57,7 +57,9 @@ Would you like to talk through what's making forgiveness difficult? I'm listenin
   },
 ];
 
-const DEFAULT_RESPONSE = `Baa! I'm Shep the Shepherd — here to walk with you in God's Word. 🐑💚
+import { withShepBaa } from "@/lib/shep-baa";
+
+const DEFAULT_RESPONSE = `${withShepBaa("I'm Shep the Shepherd — here to walk with you in God's Word.", 2)} 🐑💚
 
 I'm so glad you're here. Whether you need encouragement, help understanding Scripture, or a prayer partner, we can walk together.
 

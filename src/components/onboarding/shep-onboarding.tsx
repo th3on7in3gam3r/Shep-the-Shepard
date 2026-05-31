@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { BookOpen, Flame, MessageCircle, Sparkles } from "lucide-react";
 import { ShepAvatar } from "@/components/shep-avatar";
@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { APP_NAME, SHEP_FULL_NAME, SHEP_NAME } from "@/lib/constants";
+import { track } from "@/lib/analytics";
+import { pickShepBaa } from "@/lib/shep-baa";
 import { useIsClient } from "@/hooks/use-is-client";
 import { useProfileStore } from "@/stores/profile-store";
 import { useChatStore } from "@/stores/chat-store";
@@ -36,6 +38,7 @@ export function ShepOnboarding() {
   const [ready, setReady] = useState(false);
   const [step, setStep] = useState<Step>("welcome");
   const [nameInput, setNameInput] = useState("");
+  const welcomeBaa = useMemo(() => pickShepBaa(), []);
 
   useEffect(() => {
     if (!isClient) return;
@@ -58,6 +61,7 @@ export function ShepOnboarding() {
 
   const finish = (name?: string) => {
     if (name?.trim()) setName(name.trim());
+    track("onboarding_finish");
     completeOnboarding();
   };
 
@@ -99,7 +103,7 @@ export function ShepOnboarding() {
                   id="shep-onboarding-title"
                   className="mt-4 font-heading text-xl font-semibold"
                 >
-                  Baa! Welcome to {APP_NAME}
+                  {welcomeBaa} Welcome to {APP_NAME}
                 </h2>
                 <p className="mt-2 text-sm leading-relaxed text-muted-foreground">
                   I&apos;m {SHEP_FULL_NAME} — your gentle companion for Scripture,

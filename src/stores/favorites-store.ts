@@ -2,6 +2,7 @@
 
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { track } from "@/lib/analytics";
 
 export type FavoriteVerse = {
   id: string;
@@ -40,6 +41,7 @@ export const useFavoritesStore = create<FavoritesState>()(
             ...state.favorites,
           ],
         }));
+        track("verse_save", { reference: verse.reference });
       },
       removeFavorite: (id) =>
         set((state) => ({
