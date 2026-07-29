@@ -29,6 +29,7 @@ import { useJournalStore } from "@/stores/journal-store";
 import { useDailyPackStore } from "@/stores/daily-pack-store";
 import { useStudySession } from "@/hooks/use-study-session";
 import { todayKey } from "@/lib/date-utils";
+import { getStartHerePrompts } from "@/lib/bible-start-prompts";
 import { ShareVerseButton } from "@/components/favorites/share-verse-button";
 import {
   BibleStudyNotesPanel,
@@ -72,6 +73,11 @@ export function BibleReader() {
   const completeQuestTask = useDailyQuestStore((s) => s.completeTask);
   const addRecent = useBibleRecentStore((s) => s.addRecent);
   const recent = useBibleRecentStore((s) => s.recent);
+  const startHereOffsets = useBibleRecentStore((s) => s.startHereOffsets);
+  const startHereAvoidReference = useBibleRecentStore(
+    (s) => s.startHereAvoidReference,
+  );
+  const advanceStartHere = useBibleRecentStore((s) => s.advanceStartHere);
   const addJournalEntry = useJournalStore((s) => s.addEntry);
   const packVerse = useDailyPackStore((s) =>
     s.pack?.dateKey === todayKey() ? s.pack.verse : null,
@@ -369,6 +375,7 @@ export function BibleReader() {
 
   const handleJournal = () => {
     if (!passage) return;
+    const savedReference = passage.reference;
     addJournalEntry({
       content: `${passage.text}\n\n— ${passage.reference}`,
       reference: passage.reference,
@@ -379,30 +386,22 @@ export function BibleReader() {
       title: `Journaled ${passage.reference}`,
       subtitle: passage.translationName,
     });
-    flashNote("Saved to your journal");
-    window.setTimeout(() => router.push("/journal"), 450);
+    advanceStartHere(savedReference);
+    setPassage(null);
+    setCommentaryChapter(null);
+    setQuery("");
+    setError(null);
+    setCommentaryError(null);
+    flashNote("Saved to your journal · new Start here picks ready");
+    if (initialPassage) {
+      router.replace("/bible");
+    }
   };
 
-  const startPrompts = [
-    {
-      id: "today",
-      label: "Today's verse",
-      reference: todayVerse.reference,
-      hint: todayVerse.text.slice(0, 72) + (todayVerse.text.length > 72 ? "…" : ""),
-    },
-    {
-      id: "psalm",
-      label: "A short Psalm",
-      reference: "Psalm 23",
-      hint: "The Lord is my shepherd…",
-    },
-    {
-      id: "john",
-      label: "Classic start",
-      reference: "John 3:16",
-      hint: "For God so loved the world…",
-    },
-  ] as const;
+  const startPrompts = getStartHerePrompts(startHereOffsets, {
+    todayVerse,
+    avoidReference: startHereAvoidReference ?? undefined,
+  });
 
   const showStartHere = !passage && !loading && !initialPassage;
 
