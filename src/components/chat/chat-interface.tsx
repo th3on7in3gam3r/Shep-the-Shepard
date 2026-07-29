@@ -159,6 +159,8 @@ export function ChatInterface() {
   const [welcomeMood, setWelcomeMood] = useState(true);
   const [holding, setHolding] = useState(false);
   const [liveTranscript, setLiveTranscript] = useState("");
+  /** Assistant message id hidden until TTS audio starts (auto-speak sync). */
+  const [pendingRevealId, setPendingRevealId] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
   const lastSpokenIdRef = useRef<string | null>(null);
   const pendingSendRef = useRef("");
@@ -273,10 +275,18 @@ export function ChatInterface() {
     isStreaming && lastAssistant ? getMessageText(lastAssistant) : "";
   const awaitingFirstToken = isThinking && !streamingText.trim();
   const streamStarted = isStreaming && !!streamingText.trim();
+  const deferSpeechReveal = Boolean(
+    autoSpeak && voiceEnabled && ttsSupported,
+  );
+  const hideStreamingAssistant =
+    deferSpeechReveal && isStreaming && !!lastAssistant?.id;
+  const showSpeechWait =
+    deferSpeechReveal &&
+    (isThinking || isStreaming || !!pendingRevealId);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages, status, awaitingFirstToken, streamStarted]);
+  }, [messages, status, awaitingFirstToken, streamStarted, pendingRevealId]);
 
   useEffect(() => {
     if (
@@ -291,10 +301,15 @@ export function ChatInterface() {
       return;
     }
     const text = getLastAssistantText(messages);
-    if (text && lastAssistant.id) {
-      lastSpokenIdRef.current = lastAssistant.id;
-      speak(text);
-    }
+    if (!text || !lastAssistant.id) return;
+
+    const id = lastAssistant.id;
+    lastSpokenIdRef.current = id;
+    setPendingRevealId(id);
+    speak(text, {
+      onStart: () => setPendingRevealId((current) => (current === id ? null : current)),
+      onEnd: () => setPendingRevealId((current) => (current === id ? null : current)),
+    });
   }, [
     isClient,
     status,
@@ -311,6 +326,7 @@ export function ChatInterface() {
       const trimmed = text.trim();
       if (!trimmed || isLoading) return;
       stopSpeaking();
+      setPendingRevealId(null);
       track("chat_send");
       sendMessage({ text: trimmed });
       completeQuestTask("connect");
@@ -435,8 +451,10 @@ export function ChatInterface() {
       return `I'm Shep the Shepherd — hold to speak or tap the mic.`;
     if (holding || isListening) return "I'm listening…";
     if (isSpeaking) return "Speaking to you…";
+    if (pendingRevealId) return "Preparing to speak…";
     if (awaitingFirstToken) return "Waiting for Shep's first word…";
-    if (streamStarted) return "Shep is responding…";
+    if (streamStarted || (deferSpeechReveal && isStreaming))
+      return deferSpeechReveal ? "Preparing to speak…" : "Shep is responding…";
     if (isStreaming) return "Sharing wisdom…";
     return getSeasonalShepLine("chat-idle") ?? `${SHEP_FULL_NAME} is here for you`;
   };
@@ -449,6 +467,7 @@ export function ChatInterface() {
   const handleClearChat = () => {
     stopSpeaking();
     stopListening();
+    setPendingRevealId(null);
     clearStoredMessages();
     setMessages([]);
     lastSpokenIdRef.current = null;
@@ -539,6 +558,12 @@ export function ChatInterface() {
               const text = getMessageText(message);
               if (!text.trim()) return null;
               const isUser = message.role === "user";
+              const withholdSpeech =
+                !isUser &&
+                deferSpeechReveal &&
+                (message.id === pendingRevealId ||
+                  (hideStreamingAssistant && message.id === lastAssistant?.id));
+              if (withholdSpeech) return null;
               return (
                 <div
                   key={message.id}
@@ -558,7 +583,15 @@ export function ChatInterface() {
               );
             })}
 
-          {isClient && awaitingFirstToken && <FirstTokenIndicator />}
+          {isClient && (awaitingFirstToken || showSpeechWait) && (
+            <FirstTokenIndicator
+              label={
+                pendingRevealId || (deferSpeechReveal && isStreaming)
+                  ? "Preparing to speak…"
+                  : "Waiting for Shep's first word…"
+              }
+            />
+          )}
 
           {displayLine && (
             <p

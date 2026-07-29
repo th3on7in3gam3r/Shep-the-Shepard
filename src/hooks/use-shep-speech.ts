@@ -4,6 +4,11 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import { useSettingsStore } from "@/stores/settings-store";
 import type { VoiceTone } from "@/stores/settings-store";
 
+export type SpeakOptions = {
+  onStart?: () => void;
+  onEnd?: () => void;
+};
+
 function pickBrowserVoice(
   voices: SpeechSynthesisVoice[],
   tone: VoiceTone,
@@ -46,10 +51,6 @@ function cleanSpeechText(text: string): string {
 
 const emptySubscribe = () => () => {};
 
-function getSpeechSynthesisSupported() {
-  return typeof window !== "undefined" && !!window.speechSynthesis;
-}
-
 export function useShepSpeech() {
   const voiceEnabled = useSettingsStore((s) => s.voiceEnabled);
   const voiceEngine = useSettingsStore((s) => s.voiceEngine);
@@ -67,6 +68,7 @@ export function useShepSpeech() {
   const browserVoiceRef = useRef<SpeechSynthesisVoice | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const objectUrlRef = useRef<string | null>(null);
+  const speakOptionsRef = useRef<SpeakOptions>({});
 
   useEffect(() => {
     if (typeof window === "undefined" || !window.speechSynthesis) return;
@@ -112,9 +114,18 @@ export function useShepSpeech() {
       utterance.pitch = voicePitch;
       if (browserVoiceRef.current) utterance.voice = browserVoiceRef.current;
 
-      utterance.onstart = () => setIsSpeaking(true);
-      utterance.onend = () => setIsSpeaking(false);
-      utterance.onerror = () => setIsSpeaking(false);
+      utterance.onstart = () => {
+        setIsSpeaking(true);
+        speakOptionsRef.current.onStart?.();
+      };
+      utterance.onend = () => {
+        setIsSpeaking(false);
+        speakOptionsRef.current.onEnd?.();
+      };
+      utterance.onerror = () => {
+        setIsSpeaking(false);
+        speakOptionsRef.current.onEnd?.();
+      };
 
       window.speechSynthesis.speak(utterance);
     },
@@ -145,14 +156,19 @@ export function useShepSpeech() {
       const audio = audioRef.current ?? new Audio();
       audioRef.current = audio;
       audio.src = url;
-      audio.onplay = () => setIsSpeaking(true);
+      audio.onplay = () => {
+        setIsSpeaking(true);
+        speakOptionsRef.current.onStart?.();
+      };
       audio.onended = () => {
         setIsSpeaking(false);
         revokeObjectUrl();
+        speakOptionsRef.current.onEnd?.();
       };
       audio.onerror = () => {
         setIsSpeaking(false);
         revokeObjectUrl();
+        speakOptionsRef.current.onEnd?.();
       };
 
       await audio.play();
@@ -161,12 +177,16 @@ export function useShepSpeech() {
   );
 
   const speak = useCallback(
-    (text: string) => {
+    (text: string, options?: SpeakOptions) => {
       if (!voiceEnabled || !text.trim()) return;
 
       stopSpeaking();
+      speakOptionsRef.current = options ?? {};
       const cleaned = cleanSpeechText(text);
-      if (!cleaned) return;
+      if (!cleaned) {
+        options?.onEnd?.();
+        return;
+      }
 
       if (voiceEngine === "openai") {
         void speakWithOpenAi(cleaned).catch(() => speakWithBrowser(cleaned));
@@ -179,7 +199,7 @@ export function useShepSpeech() {
   );
 
   return { isSpeaking, isSupported, speak, stopSpeaking };
-};
+}
 
 /** @deprecated */
 export const useLennySpeech = useShepSpeech;
