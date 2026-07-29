@@ -107,6 +107,18 @@ export const BOOK_NAME_TO_ID: Record<string, string> = {
   Revelation: "REV",
 };
 
+/**
+ * Alternate spellings people type that map to BOOK_NAME_TO_ID keys.
+ * Matched longest-first alongside canonical names in parsePassageReference.
+ */
+export const BOOK_NAME_ALIASES: Record<string, keyof typeof BOOK_NAME_TO_ID | string> = {
+  Psalm: "Psalms",
+  "Song of Songs": "Song of Solomon",
+  Canticles: "Song of Solomon",
+  Apocalypse: "Revelation",
+};
+
+
 export type HelloaoVerse = {
   number: number;
   text: string;
@@ -164,12 +176,22 @@ export function parsePassageReference(input: string): {
   verseEnd?: number;
 } | null {
   const trimmed = input.trim();
-  const booksByLength = Object.keys(BOOK_NAME_TO_ID).sort(
-    (a, b) => b.length - a.length,
-  );
 
-  for (const bookName of booksByLength) {
-    const escaped = bookName.replace(/\s+/g, "\\s+");
+  const candidates: { matchAs: string; bookName: string; bookId: string }[] = [
+    ...Object.entries(BOOK_NAME_TO_ID).map(([bookName, bookId]) => ({
+      matchAs: bookName,
+      bookName,
+      bookId,
+    })),
+    ...Object.entries(BOOK_NAME_ALIASES).flatMap(([alias, canonical]) => {
+      const bookId = BOOK_NAME_TO_ID[canonical];
+      if (!bookId) return [];
+      return [{ matchAs: alias, bookName: canonical, bookId }];
+    }),
+  ].sort((a, b) => b.matchAs.length - a.matchAs.length);
+
+  for (const { matchAs, bookName, bookId } of candidates) {
+    const escaped = matchAs.replace(/\s+/g, "\\s+");
     const regex = new RegExp(
       `^${escaped}\\s+(\\d+)(?::(\\d+)(?:\\s*[-–]\\s*(\\d+))?)?$`,
       "i",
@@ -179,7 +201,7 @@ export function parsePassageReference(input: string): {
 
     return {
       bookName,
-      bookId: BOOK_NAME_TO_ID[bookName],
+      bookId,
       chapter: parseInt(match[1], 10),
       verseStart: match[2] ? parseInt(match[2], 10) : undefined,
       verseEnd: match[3] ? parseInt(match[3], 10) : undefined,
