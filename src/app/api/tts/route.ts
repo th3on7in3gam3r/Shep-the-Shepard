@@ -1,11 +1,13 @@
 import { experimental_generateSpeech as generateSpeech } from "ai";
-import { openai } from "@ai-sdk/openai";
 import {
   DEFAULT_SHEP_OPENAI_VOICE,
   SHEP_OPENAI_VOICES,
   type ShepOpenAiVoice,
 } from "@/lib/shep-voice";
-import { getOpenAiApiKey, isOpenAiConfigured } from "@/lib/openai-config";
+import {
+  createOpenAiProvider,
+  resolveOpenAiApiKey,
+} from "@/lib/openai-config";
 
 export const maxDuration = 30;
 
@@ -17,9 +19,13 @@ function errorResponse(message: string, status = 400) {
 }
 
 export async function POST(req: Request) {
-  if (!isOpenAiConfigured()) {
+  const resolved = resolveOpenAiApiKey(req);
+  if (resolved.error) {
+    return errorResponse(resolved.error, 400);
+  }
+  if (!resolved.apiKey) {
     return errorResponse(
-      "OpenAI is not configured. Add OPENAI_API_KEY to .env.local.",
+      "OpenAI is not configured. Add OPENAI_API_KEY to .env.local, or your own key in Settings.",
       503,
     );
   }
@@ -54,6 +60,7 @@ export async function POST(req: Request) {
       : 0.95;
 
   try {
+    const openai = createOpenAiProvider(resolved.apiKey);
     const result = await generateSpeech({
       model: openai.speech("tts-1-hd"),
       text: cleaned,
@@ -73,8 +80,16 @@ export async function POST(req: Request) {
     });
   } catch (error) {
     console.error("[tts] OpenAI speech failed:", error);
-    if (!getOpenAiApiKey()) {
-      return errorResponse("OpenAI API key missing", 503);
+    if (
+      error instanceof Error &&
+      /incorrect api key|invalid_api_key|authentication/i.test(error.message)
+    ) {
+      return errorResponse(
+        resolved.source === "user"
+          ? "Your OpenAI API key looks invalid. Check it in Settings."
+          : "OpenAI API key is invalid.",
+        502,
+      );
     }
     return errorResponse("Could not generate speech. Try again.", 502);
   }

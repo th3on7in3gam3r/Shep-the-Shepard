@@ -1,4 +1,24 @@
+import { getLocalTimeOfDay } from "@/lib/build-shep-system-prompt";
+
 const DEMO_RESPONSES: { keywords: string[]; response: string }[] = [
+  {
+    keywords: ["how are you", "how're you", "how r you", "how's it going", "how is it going"],
+    response: `I'm doing well — thank you for asking!
+
+How's your {{period}} going so far? I'm here if you want to talk, or we can open God's Word whenever you're ready.`,
+  },
+  {
+    keywords: ["just talk", "just chat", "no thanks", "no thank you", "let's just talk", "lets just talk"],
+    response: `Of course — we can just talk. No agenda, no pressure.
+
+What's been on your mind {{period}}, or what have you been up to? I'm listening.`,
+  },
+  {
+    keywords: ["hello", "hi shep", "hey shep", "good morning", "good afternoon", "good evening", "hey there"],
+    response: `Hi — it's good to see you.
+
+I'm doing well over here. How's your {{period}} going so far? We can chat about anything, or dig into Scripture whenever you'd like.`,
+  },
   {
     keywords: ["anxious", "anxiety", "worry", "afraid", "fear", "stress"],
     response: `I hear the weight you're carrying, friend.
@@ -32,7 +52,7 @@ Try this today: "Father, thank You for loving me. Help me with ___. Amen."
 What's on your heart to bring before God right now?`,
   },
   {
-    keywords: ["verse", "scripture", "bible", "read", "passage"],
+    keywords: ["verse", "scripture", "bible", "read", "passage", "the word"],
     response: `Let's open God's Word together.
 
 Some favorites for daily strength:
@@ -57,22 +77,43 @@ Would you like to talk through what's making forgiveness difficult? I'm listenin
   },
 ];
 
-const DEFAULT_RESPONSE = `I'm Shep the Shepherd — here to walk with you in God's Word.
+function periodPhrase(timeOfDay?: string): string {
+  switch (timeOfDay) {
+    case "morning":
+      return "morning";
+    case "afternoon":
+      return "afternoon";
+    case "evening":
+      return "evening";
+    case "night":
+      return "night";
+    default:
+      return "day";
+  }
+}
 
-I'm so glad you're here. Whether you need encouragement, help understanding Scripture, or a prayer partner, we can walk together.
+const DEFAULT_RESPONSE = `I'm Shep the Shepherd — glad you're here.
 
-"As a shepherd cares for his flock… so the Lord cares for you." — adapted from Isaiah 40:11
+We can simply talk, or walk through Scripture and prayer whenever you want.
 
-What's on your heart today? You can ask about worry, prayer, a Bible passage, or simply say hello!`;
+How's your {{period}} going so far?`;
 
-export function buildShepDemoResponse(userMessage: string): string {
+function fillPeriod(template: string, timeOfDay?: string): string {
+  return template.replace(/\{\{period\}\}/g, periodPhrase(timeOfDay));
+}
+
+export function buildShepDemoResponse(
+  userMessage: string,
+  timeOfDay?: string,
+): string {
   const lower = userMessage.toLowerCase();
+  const tod = timeOfDay?.trim() || getLocalTimeOfDay();
   for (const { keywords, response } of DEMO_RESPONSES) {
     if (keywords.some((kw) => lower.includes(kw))) {
-      return response;
+      return fillPeriod(response, tod);
     }
   }
-  return DEFAULT_RESPONSE;
+  return fillPeriod(DEFAULT_RESPONSE, tod);
 }
 
 /** @deprecated */

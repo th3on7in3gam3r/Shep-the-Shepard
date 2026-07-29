@@ -18,6 +18,8 @@ type SettingsState = {
   voiceRate: number;
   voicePitch: number;
   voiceTone: VoiceTone;
+  /** Optional personal OpenAI key (browser-only). Empty = use server key. */
+  userOpenAiApiKey: string;
   notifyDailyVerse: boolean;
   notifyDevotion: boolean;
   highContrast: boolean;
@@ -32,6 +34,7 @@ type SettingsState = {
   setVoiceRate: (rate: number) => void;
   setVoicePitch: (pitch: number) => void;
   setVoiceTone: (tone: VoiceTone) => void;
+  setUserOpenAiApiKey: (key: string) => void;
   setNotifyDailyVerse: (enabled: boolean) => void;
   setNotifyDevotion: (enabled: boolean) => void;
   setHighContrast: (enabled: boolean) => void;
@@ -49,6 +52,7 @@ export const useSettingsStore = create<SettingsState>()(
       voiceRate: 0.92,
       voicePitch: 1.05,
       voiceTone: "warm-female",
+      userOpenAiApiKey: "",
       notifyDailyVerse: true,
       notifyDevotion: true,
       highContrast: false,
@@ -62,6 +66,8 @@ export const useSettingsStore = create<SettingsState>()(
       setVoiceRate: (voiceRate) => set({ voiceRate }),
       setVoicePitch: (voicePitch) => set({ voicePitch }),
       setVoiceTone: (voiceTone) => set({ voiceTone }),
+      setUserOpenAiApiKey: (userOpenAiApiKey) =>
+        set({ userOpenAiApiKey: userOpenAiApiKey.trim() }),
       setNotifyDailyVerse: (notifyDailyVerse) => set({ notifyDailyVerse }),
       setNotifyDevotion: (notifyDevotion) => set({ notifyDevotion }),
       setHighContrast: (highContrast) => set({ highContrast }),

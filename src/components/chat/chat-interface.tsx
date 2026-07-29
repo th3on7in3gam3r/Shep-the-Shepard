@@ -32,6 +32,8 @@ import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { useIsClient } from "@/hooks/use-is-client";
 import { isWebGLAvailable } from "@/lib/webgl-capability";
 import { getLastAssistantText, getMessageText, dedupeChatMessages } from "@/lib/chat-utils";
+import { getLocalTimeOfDay } from "@/lib/build-shep-system-prompt";
+import { USER_OPENAI_KEY_HEADER } from "@/lib/openai-user-key";
 import { useChatContextStore } from "@/stores/chat-context-store";
 import { useChatStore } from "@/stores/chat-store";
 import { ChatContextBanner, GuidedFlowPanel } from "@/components/chat/guided-flow-panel";
@@ -252,7 +254,14 @@ export function ChatInterface() {
       new DefaultChatTransport({
         body: () => ({
           userName: profileNameRef.current.trim() || undefined,
+          timeOfDay: getLocalTimeOfDay(),
         }),
+        headers: () => {
+          const key = useSettingsStore.getState().userOpenAiApiKey.trim();
+          const headers: Record<string, string> = {};
+          if (key) headers[USER_OPENAI_KEY_HEADER] = key;
+          return headers;
+        },
       }),
     [],
   );

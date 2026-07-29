@@ -5,14 +5,14 @@ import {
   streamText,
   type UIMessage,
 } from "ai";
-import { openai } from "@ai-sdk/openai";
-import { buildShepSystemPrompt } from "@/lib/build-shep-system-prompt";
+import { buildShepSystemPrompt, type ShepTimeOfDay } from "@/lib/build-shep-system-prompt";
 import { dedupeChatMessages } from "@/lib/chat-utils";
 import {
-  getOpenAiApiKey,
+  createOpenAiProvider,
   getOpenAiModel,
   getOpenAiTemperature,
-  isOpenAiConfigured,
+  isOpenAiAvailable,
+  resolveOpenAiApiKey,
 } from "@/lib/openai-config";
 import {
   buildShepDemoResponse,
@@ -29,6 +29,7 @@ export const maxDuration = 30;
 type ChatRequestBody = {
   messages?: UIMessage[];
   userName?: string;
+  timeOfDay?: ShepTimeOfDay | string;
 };
 
 function rateLimitResponse(retryAfterSec: number) {
@@ -90,11 +91,20 @@ export async function POST(req: Request) {
     return errorResponse("Messages required", 400);
   }
 
-  if (isOpenAiConfigured()) {
+  const resolved = resolveOpenAiApiKey(req);
+  if (resolved.error) {
+    return errorResponse(resolved.error, 400);
+  }
+
+  if (isOpenAiAvailable(req)) {
     try {
+      const openai = createOpenAiProvider(resolved.apiKey!);
       const result = streamText({
         model: openai(getOpenAiModel()),
-        system: buildShepSystemPrompt(body.userName),
+        system: buildShepSystemPrompt({
+          userName: body.userName,
+          timeOfDay: body.timeOfDay,
+        }),
         messages: await convertToModelMessages(messages),
         temperature: getOpenAiTemperature(),
       });
@@ -104,20 +114,22 @@ export async function POST(req: Request) {
       const message =
         error instanceof Error &&
         /incorrect api key|invalid_api_key|authentication/i.test(error.message)
-          ? "OpenAI API key is invalid. Check OPENAI_API_KEY in .env.local and restart the dev server."
+          ? resolved.source === "user"
+            ? "Your OpenAI API key looks invalid. Check it in Settings and try again."
+            : "OpenAI API key is invalid. Check OPENAI_API_KEY in .env.local and restart the dev server."
           : "Shep couldn't reach OpenAI right now. Please try again in a moment.";
       return errorResponse(message, 502);
     }
   }
 
-  if (process.env.NODE_ENV === "production" && !getOpenAiApiKey()) {
+  if (process.env.NODE_ENV === "production" && !resolved.apiKey) {
     return errorResponse(
-      "Live chat is not configured. Set OPENAI_API_KEY on the server.",
+      "Live chat is not configured. Set OPENAI_API_KEY on the server, or add your own key in Settings.",
       503,
     );
   }
 
-  const reply = buildShepDemoResponse(getLastUserText(messages));
+  const reply = buildShepDemoResponse(getLastUserText(messages), body.timeOfDay);
   const textId = "shep-demo-text";
 
   const stream = createUIMessageStream({

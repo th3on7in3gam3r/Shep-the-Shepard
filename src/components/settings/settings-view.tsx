@@ -57,6 +57,8 @@ export function SettingsView() {
   const voiceRate = useSettingsStore((s) => s.voiceRate);
   const voicePitch = useSettingsStore((s) => s.voicePitch);
   const voiceTone = useSettingsStore((s) => s.voiceTone);
+  const userOpenAiApiKey = useSettingsStore((s) => s.userOpenAiApiKey);
+  const setUserOpenAiApiKey = useSettingsStore((s) => s.setUserOpenAiApiKey);
   const setDefaultTranslation = useSettingsStore((s) => s.setDefaultTranslation);
   const setThemePreference = useSettingsStore((s) => s.setThemePreference);
   const setVoiceEnabled = useSettingsStore((s) => s.setVoiceEnabled);
@@ -294,6 +296,56 @@ export function SettingsView() {
               />
             </div>
           )}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">OpenAI (optional)</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-[11px] leading-relaxed text-muted-foreground">
+            Leave blank to use Shepherd&apos;s shared key. Optionally paste your own
+            OpenAI API key so chat and voice bill to your account. The key stays on
+            this device only — never required to get started.
+          </p>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              Your OpenAI API key
+            </label>
+            <Input
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="sk-…"
+              value={userOpenAiApiKey}
+              onChange={(e) => setUserOpenAiApiKey(e.target.value)}
+              className="font-mono text-sm"
+            />
+          </div>
+          {userOpenAiApiKey ? (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setUserOpenAiApiKey("")}
+            >
+              Clear key
+            </Button>
+          ) : null}
+          <p className="text-[11px] text-muted-foreground">
+            Get a key at{" "}
+            <a
+              href="https://platform.openai.com/api-keys"
+              target="_blank"
+              rel="noreferrer"
+              className="text-shepherd-sage underline-offset-2 hover:underline"
+            >
+              platform.openai.com/api-keys
+            </a>
+            .
+          </p>
         </CardContent>
       </Card>
 

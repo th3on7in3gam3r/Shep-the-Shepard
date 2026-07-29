@@ -26,7 +26,27 @@ export function exportShepherdData(): string {
       const raw = localStorage.getItem(key);
       if (raw) {
         try {
-          data[key] = JSON.parse(raw);
+          const parsed = JSON.parse(raw) as unknown;
+          if (
+            key === "shepherd-settings" &&
+            parsed &&
+            typeof parsed === "object" &&
+            "state" in parsed
+          ) {
+            const settings = parsed as {
+              state?: Record<string, unknown>;
+              version?: number;
+            };
+            data[key] = {
+              ...settings,
+              state: {
+                ...settings.state,
+                userOpenAiApiKey: "",
+              },
+            };
+          } else {
+            data[key] = parsed;
+          }
         } catch {
           data[key] = raw;
         }

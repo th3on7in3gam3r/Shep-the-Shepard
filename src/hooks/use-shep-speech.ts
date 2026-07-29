@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { useSettingsStore } from "@/stores/settings-store";
 import type { VoiceTone } from "@/stores/settings-store";
+import { USER_OPENAI_KEY_HEADER } from "@/lib/openai-user-key";
 
 export type SpeakOptions = {
   onStart?: () => void;
@@ -136,7 +137,14 @@ export function useShepSpeech() {
     async (cleaned: string) => {
       const response = await fetch("/api/tts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: (() => {
+          const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+          };
+          const userKey = useSettingsStore.getState().userOpenAiApiKey.trim();
+          if (userKey) headers[USER_OPENAI_KEY_HEADER] = userKey;
+          return headers;
+        })(),
         body: JSON.stringify({
           text: cleaned,
           voice: openAiVoice,
