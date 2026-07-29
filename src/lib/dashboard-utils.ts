@@ -1,9 +1,13 @@
+import type { ActivityItem, ActivityType } from "@/stores/activity-store";
+
+const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
+
 export function getStreakMessage(
   streak: number,
   questCompleteToday = false,
 ): string {
   if (streak === 0 && !questCompleteToday) {
-    return "Complete today's Daily Quest to start your faith streak.";
+    return "Your first day is waiting — a gentle Daily Quest is enough to begin.";
   }
   if (streak === 0 && questCompleteToday) {
     return "Day one complete — your streak has begun!";
@@ -18,6 +22,39 @@ export function getStreakMessage(
     return `${streak}-day streak — you're building a beautiful habit in God's Word.`;
   }
   return `${streak} days strong! Your faithfulness is inspiring.`;
+}
+
+export function isWithinPastWeek(iso: string): boolean {
+  const t = new Date(iso).getTime();
+  if (Number.isNaN(t)) return false;
+  return Date.now() - t < WEEK_MS;
+}
+
+export function countActivityThisWeek(
+  items: ActivityItem[],
+  type?: ActivityType,
+): number {
+  return items.filter(
+    (item) =>
+      isWithinPastWeek(item.timestamp) && (type ? item.type === type : true),
+  ).length;
+}
+
+export function getActivityHref(type: ActivityType): string {
+  switch (type) {
+    case "chat":
+      return "/chat";
+    case "devotion":
+      return "/devotions";
+    case "bible":
+      return "/bible";
+    case "journal":
+      return "/journal";
+    case "verse_saved":
+      return "/saved";
+    default:
+      return "/";
+  }
 }
 
 export function formatStudyTime(totalMinutes: number): string {

@@ -3,18 +3,19 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { MessageCircle, PenLine } from "lucide-react";
+import { useState } from "react";
 import { ShepAvatar } from "@/components/shep-avatar";
-import { Button, buttonVariants } from "@/components/ui/button";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { buildMoodChatContext } from "@/lib/chat-context";
+import { buildDevotionChatContext } from "@/lib/chat-context";
 import type { Devotion } from "@/lib/devotions";
 import { cn } from "@/lib/utils";
 import { useChatContextStore } from "@/stores/chat-context-store";
 import { useJournalStore } from "@/stores/journal-store";
 import { useDailyQuestStore } from "@/stores/daily-quest-store";
 import { useActivityStore } from "@/stores/activity-store";
-import { useState } from "react";
 
 type DevotionReflectProps = {
   devotion: Devotion;
@@ -27,20 +28,32 @@ export function DevotionReflect({ devotion }: DevotionReflectProps) {
   const logActivity = useActivityStore((s) => s.logActivity);
   const completeTask = useDailyQuestStore((s) => s.completeTask);
   const [journalLine, setJournalLine] = useState("");
-  const [saved, setSaved] = useState(false);
+  const [personalNote, setPersonalNote] = useState("");
+  const [savedLabel, setSavedLabel] = useState<string | null>(null);
 
   const talkWithShep = () => {
+    const draft = [journalLine.trim(), personalNote.trim()].filter(Boolean).join("\n\n");
     setPending(
-      buildMoodChatContext(`After devotion · ${devotion.theme}`, devotion.shepQuestion),
+      buildDevotionChatContext({
+        theme: devotion.theme,
+        title: devotion.title,
+        verse: devotion.verse,
+        shepQuestion: devotion.shepQuestion,
+        userAnswer: draft || undefined,
+      }),
     );
     router.push("/chat");
   };
 
   const saveJournal = () => {
-    const text = journalLine.trim();
-    if (!text) return;
+    const answer = journalLine.trim();
+    if (!answer) return;
+    const note = personalNote.trim();
+    const content = note
+      ? `${answer}\n\n— Personal note: ${note}`
+      : answer;
     addEntry({
-      content: text,
+      content,
       reference: devotion.verse.reference,
     });
     logActivity({
@@ -49,67 +62,119 @@ export function DevotionReflect({ devotion }: DevotionReflectProps) {
       subtitle: devotion.theme,
     });
     completeTask("reflect");
+    setSavedLabel(`Saved · ${devotion.verse.reference}`);
     setJournalLine("");
-    setSaved(true);
+    setPersonalNote("");
   };
 
   return (
-    <Card className="border-shepherd-sage/25 bg-shepherd-meadow/10">
-      <CardContent className="space-y-3 pt-5">
+    <Card className="border-shepherd-sage/30 bg-gradient-to-br from-shepherd-meadow/25 via-shepherd-cream/40 to-shepherd-sky/15 shadow-sm dark:from-shepherd-sage/15 dark:via-card dark:to-card">
+      <CardContent className="space-y-4 p-4 sm:p-5">
         <div className="flex items-start gap-3">
-          <ShepAvatar size="sm" className="shrink-0" />
-          <div>
-            <p className="text-xs font-medium uppercase tracking-wide text-shepherd-sage">
+          <ShepAvatar size="md" mood="happy" className="shrink-0 ring-2 ring-shepherd-sage/25" />
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-shepherd-sage">
               Shep asks
             </p>
-            <p className="mt-1 text-sm leading-relaxed">{devotion.shepQuestion}</p>
+            <p className="mt-1.5 text-sm font-medium leading-relaxed text-foreground">
+              {devotion.shepQuestion}
+            </p>
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          {devotion.reflectionPrompts.map((prompt) => (
-            <Link
-              key={prompt}
-              href={`/journal?reference=${encodeURIComponent(devotion.verse.reference)}&prompt=${encodeURIComponent(prompt)}`}
-              className={cn(
-                buttonVariants({ variant: "outline", size: "sm" }),
-                "h-auto whitespace-normal py-1.5 text-left text-xs",
-              )}
-            >
-              {prompt}
-            </Link>
-          ))}
+        <div>
+          <p className="mb-2 text-[11px] font-medium text-muted-foreground">
+            A gentle prompt to get started
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {devotion.reflectionPrompts.map((prompt) => (
+              <button
+                key={prompt}
+                type="button"
+                onClick={() => {
+                  setJournalLine(prompt);
+                  setSavedLabel(null);
+                }}
+                className={cn(
+                  "rounded-full border border-shepherd-sage/25 bg-background/80 px-3 py-1.5 text-left text-xs font-medium transition-colors",
+                  "hover:border-shepherd-sage/45 hover:bg-shepherd-meadow/30",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shepherd-sage",
+                )}
+              >
+                {prompt}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <Textarea
-          value={journalLine}
-          onChange={(e) => {
-            setJournalLine(e.target.value);
-            setSaved(false);
-          }}
-          placeholder="Where did you sense God today? (optional journal line)"
-          rows={3}
-          className="text-sm"
-        />
+        <div className="space-y-1.5">
+          <label
+            htmlFor="devotion-answer"
+            className="text-xs font-medium text-muted-foreground"
+          >
+            Your answer to Shep
+          </label>
+          <Textarea
+            id="devotion-answer"
+            value={journalLine}
+            onChange={(e) => {
+              setJournalLine(e.target.value);
+              setSavedLabel(null);
+            }}
+            placeholder="Share what’s stirring in your heart…"
+            rows={4}
+            className="min-h-[5.5rem] text-sm leading-relaxed"
+          />
+        </div>
 
-        <div className="flex flex-wrap gap-2">
+        <div className="space-y-1.5">
+          <label
+            htmlFor="devotion-note"
+            className="text-xs font-medium text-muted-foreground"
+          >
+            Short personal note <span className="font-normal">(optional)</span>
+          </label>
+          <Input
+            id="devotion-note"
+            value={personalNote}
+            onChange={(e) => {
+              setPersonalNote(e.target.value);
+              setSavedLabel(null);
+            }}
+            placeholder="Anything else you want to remember…"
+            className="text-sm"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
           <Button
-            size="sm"
-            className="h-8 bg-shepherd-sage hover:bg-shepherd-sage/90"
+            className="h-10 flex-1 bg-shepherd-sage hover:bg-shepherd-sage/90"
             onClick={saveJournal}
             disabled={!journalLine.trim()}
           >
-            <PenLine className="size-3.5" />
+            <PenLine className="size-4" />
             Save to journal
           </Button>
-          <Button size="sm" variant="outline" className="h-8" onClick={talkWithShep}>
-            <MessageCircle className="size-3.5" />
+          <Button
+            variant="outline"
+            className="h-10 flex-1 border-shepherd-sage/35 bg-background/70"
+            onClick={talkWithShep}
+          >
+            <MessageCircle className="size-4" />
             Reflect with Shep
           </Button>
         </div>
 
-        {saved && (
-          <p className="text-xs text-shepherd-sage">Saved to your prayer journal.</p>
+        {savedLabel && (
+          <div className="flex flex-wrap items-center gap-2 text-xs" role="status">
+            <p className="font-medium text-shepherd-sage">{savedLabel}</p>
+            <Link
+              href="/journal"
+              className="font-medium text-shepherd-sage underline-offset-2 hover:underline"
+            >
+              Open journal
+            </Link>
+          </div>
         )}
       </CardContent>
     </Card>

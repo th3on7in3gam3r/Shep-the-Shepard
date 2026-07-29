@@ -13,6 +13,7 @@ const STORAGE_KEYS = [
   "shepherd-guided-flow",
   "shepherd-verse-prayers",
   "shepherd-daily-pack",
+  "shepherd-bible-recent",
 ] as const;
 
 export function exportShepherdData(): string {

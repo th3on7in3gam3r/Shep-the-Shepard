@@ -55,7 +55,7 @@ export function AskShepPassageActions({
         onClick={askShep}
       >
         <MessageCircle className="size-3.5" />
-        Ask Shep about this passage
+        Talk with Shep
       </Button>
     );
   }
@@ -67,7 +67,7 @@ export function AskShepPassageActions({
         onClick={askShep}
       >
         <MessageCircle className="size-4" />
-        Ask Shep about this passage
+        Talk with Shep
       </Button>
       <Button variant="outline" className="flex-1" onClick={guidedStudy}>
         <Compass className="size-4" />

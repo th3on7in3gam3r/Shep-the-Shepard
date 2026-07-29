@@ -9,7 +9,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { buildMoodChatContext } from "@/lib/chat-context";
 import { track } from "@/lib/analytics";
 import { heartMoodToShepMood } from "@/lib/mood-shep";
-import { getMoodOptions, getMoodSuggestion, type HeartMood } from "@/lib/mood-scripture";
+import {
+  getMoodChipClasses,
+  getMoodOptions,
+  getMoodSuggestion,
+  type HeartMood,
+} from "@/lib/mood-scripture";
 import { cn } from "@/lib/utils";
 import { useClientValue } from "@/hooks/use-is-client";
 import { todayKey } from "@/lib/date-utils";
@@ -48,13 +53,16 @@ export function HeartCheckIn() {
   };
 
   return (
-    <Card className="border-shepherd-sky/25 overflow-hidden">
+    <Card className="overflow-hidden border-shepherd-sky/25">
       <CardContent className="space-y-4 p-4">
         <div className="flex items-center gap-3">
           <ShepAvatar
             size="md"
             mood={shepMood}
-            className={cn(todayMood && "ring-2 ring-shepherd-sage/40")}
+            className={cn(
+              "transition-shadow duration-300",
+              todayMood && "ring-2 ring-shepherd-sage/40 shadow-[0_0_0_4px_rgba(0,0,0,0.02)]",
+            )}
           />
           <div>
             <div className="flex items-center gap-2">
@@ -67,7 +75,11 @@ export function HeartCheckIn() {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div
+          className="grid grid-cols-2 gap-2 sm:grid-cols-3"
+          role="group"
+          aria-label="Mood check-in"
+        >
           {options.map(({ mood: optionMood, label, emoji }) => {
             const selected = todayMood === optionMood;
             return (
@@ -75,13 +87,13 @@ export function HeartCheckIn() {
                 key={optionMood}
                 type="button"
                 aria-pressed={selected}
+                aria-label={`${label}${selected ? ", selected" : ""}`}
                 onClick={() => handleSelect(optionMood)}
                 className={cn(
-                  "flex min-h-[3.25rem] flex-col items-center justify-center gap-0.5 rounded-xl border-2 px-2 py-2.5 text-center transition-all",
+                  "flex min-h-[3.5rem] flex-col items-center justify-center gap-1 rounded-2xl border-2 px-2 py-2.5 text-center transition-all duration-200",
                   "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-shepherd-sage focus-visible:ring-offset-2",
-                  selected
-                    ? "scale-[1.02] border-shepherd-sage bg-shepherd-sage text-primary-foreground shadow-sm"
-                    : "border-shepherd-meadow/50 bg-background/80 hover:border-shepherd-sage/40 hover:bg-shepherd-meadow/25 active:scale-[0.98]",
+                  "active:scale-[0.97] motion-safe:hover:scale-[1.02]",
+                  getMoodChipClasses(optionMood, selected),
                 )}
               >
                 <span className="text-xl leading-none" aria-hidden>
@@ -94,15 +106,21 @@ export function HeartCheckIn() {
         </div>
 
         {suggestion && (
-          <div className="space-y-3 rounded-xl bg-shepherd-meadow/25 px-3 py-3 transition-all">
-            <p className="font-serif text-sm leading-relaxed">
+          <div
+            key={suggestion.mood}
+            className="space-y-3 rounded-2xl border border-shepherd-sage/15 bg-shepherd-meadow/30 px-3.5 py-3.5 motion-safe:animate-mood-reveal dark:bg-shepherd-sage/15"
+          >
+            <p className="text-xs font-medium text-shepherd-sage">
+              {suggestion.emoji} {suggestion.label} — here&apos;s a word for you
+            </p>
+            <p className="font-serif text-[0.95rem] leading-[1.65] tracking-wide text-foreground/90">
               &ldquo;{suggestion.verse.text}&rdquo;
             </p>
-            <p className="text-xs font-medium text-shepherd-sage">
+            <p className="text-xs font-medium text-muted-foreground">
               {suggestion.verse.reference}
             </p>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" className="h-9 min-w-[8rem]" onClick={openChat}>
+            <div className="flex flex-wrap gap-2 pt-0.5">
+              <Button size="sm" className="h-9 min-w-[8rem] bg-shepherd-sage hover:bg-shepherd-sage/90" onClick={openChat}>
                 <MessageCircle className="size-3.5" />
                 Talk with Shep
               </Button>

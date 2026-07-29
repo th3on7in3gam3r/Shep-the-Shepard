@@ -4,6 +4,7 @@ export type AnalyticsEvent =
   | "quest_complete"
   | "quest_task_complete"
   | "chat_send"
+  | "chat_followup"
   | "mood_select"
   | "verse_save"
   | "onboarding_finish";

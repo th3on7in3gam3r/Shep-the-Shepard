@@ -12,18 +12,21 @@ import {
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
+  BookMarked,
   Keyboard,
   Mic,
   Music,
   Music2,
+  NotebookPen,
   Radio,
   Trash2,
   Volume2,
   VolumeX,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Shep3DScene, ShepSceneFallback } from "@/components/chat/shep-3d-scene";
 import type { ShepMood } from "@/components/shep-avatar";
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Switch } from "@/components/ui/switch";
@@ -32,6 +35,7 @@ import { useSpeechRecognition } from "@/hooks/use-speech-recognition";
 import { useIsClient } from "@/hooks/use-is-client";
 import { isWebGLAvailable } from "@/lib/webgl-capability";
 import { getLastAssistantText, getMessageText, dedupeChatMessages } from "@/lib/chat-utils";
+import { extractVerseFromText } from "@/lib/extract-verse";
 import { getLocalTimeOfDay } from "@/lib/build-shep-system-prompt";
 import { USER_OPENAI_KEY_HEADER } from "@/lib/openai-user-key";
 import { useChatContextStore } from "@/stores/chat-context-store";
@@ -40,6 +44,8 @@ import { ChatContextBanner, GuidedFlowPanel } from "@/components/chat/guided-flo
 import { FirstTokenIndicator } from "@/components/chat/typing-indicator";
 import { useActivityStore } from "@/stores/activity-store";
 import { useDailyQuestStore } from "@/stores/daily-quest-store";
+import { useFavoritesStore } from "@/stores/favorites-store";
+import { useJournalStore } from "@/stores/journal-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useProfileStore } from "@/stores/profile-store";
 import { useStudySession } from "@/hooks/use-study-session";
@@ -148,26 +154,50 @@ function HoldToSpeakButton({
 }: HoldMicProps) {
   const active = holding || listening;
   return (
-    <button
-      type="button"
-      disabled={disabled}
-      suppressHydrationWarning
-      aria-label={active ? "Release to send message" : "Hold to speak"}
-      {...attachHoldPointerHandlers(onHoldStart, onHoldEnd)}
-      className={cn(
-        "flex w-full items-center justify-center gap-2 rounded-xl py-2.5 transition-all touch-none select-none",
-        "[touch-action:none] [-webkit-user-select:none] [-webkit-touch-callout:none]",
-        active
-          ? "scale-[0.99] bg-shepherd-sage text-primary-foreground shadow-inner"
-          : "bg-gradient-to-br from-shepherd-sage to-shepherd-sky text-primary-foreground shadow-md active:scale-[0.99]",
-        disabled && "opacity-60",
+    <div className="relative flex justify-center py-1">
+      {active && (
+        <>
+          <span
+            className="pointer-events-none absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-full border-2 border-shepherd-sage/40 motion-safe:animate-hold-ring"
+            aria-hidden
+          />
+          <span
+            className="pointer-events-none absolute inset-x-12 top-1/2 h-20 -translate-y-1/2 rounded-full border-2 border-shepherd-sky/35 motion-safe:animate-hold-ring-delay"
+            aria-hidden
+          />
+        </>
       )}
-    >
-      <Mic className={cn("size-5", active && "animate-pulse")} />
-      <span className="text-sm font-semibold">
-        {active ? "Release to send" : "Hold to Speak"}
-      </span>
-    </button>
+      <button
+        type="button"
+        disabled={disabled}
+        suppressHydrationWarning
+        aria-label={active ? "Release to send message" : "Hold to speak"}
+        {...attachHoldPointerHandlers(onHoldStart, onHoldEnd)}
+        className={cn(
+          "relative z-10 flex min-h-28 w-full max-w-sm flex-col items-center justify-center gap-2 rounded-3xl px-6 py-6 transition-all touch-none select-none",
+          "[touch-action:none] [-webkit-user-select:none] [-webkit-touch-callout:none]",
+          active
+            ? "scale-[0.96] bg-shepherd-sage text-primary-foreground shadow-inner"
+            : "bg-gradient-to-br from-shepherd-sage to-shepherd-sky text-primary-foreground shadow-lg motion-safe:animate-hold-breathe",
+          disabled && "opacity-60 motion-safe:animate-none",
+        )}
+      >
+        <span
+          className={cn(
+            "flex size-14 items-center justify-center rounded-full bg-primary-foreground/15",
+            active && "bg-primary-foreground/25",
+          )}
+        >
+          <Mic className={cn("size-7", active && "animate-pulse")} />
+        </span>
+        <span className="text-base font-semibold tracking-tight">
+          {active ? "Release to send" : "Hold to Speak"}
+        </span>
+        <span className="text-[11px] font-medium opacity-80">
+          {active ? "Holding your words with care…" : "Press and hold, then release"}
+        </span>
+      </button>
+    </div>
   );
 }
 
@@ -201,6 +231,100 @@ function CompactHoldMic({
   );
 }
 
+type ReplyFollowUpsProps = {
+  text: string;
+  onContinue: () => void;
+  onPray: () => void;
+};
+
+function ReplyFollowUps({ text, onContinue, onPray }: ReplyFollowUpsProps) {
+  const router = useRouter();
+  const addFavorite = useFavoritesStore((s) => s.addFavorite);
+  const isFavorite = useFavoritesStore((s) => s.isFavorite);
+  const addEntry = useJournalStore((s) => s.addEntry);
+  const logActivity = useActivityStore((s) => s.logActivity);
+  const [savedNote, setSavedNote] = useState<string | null>(null);
+  const verse = useMemo(() => extractVerseFromText(text), [text]);
+  const alreadySaved = verse ? isFavorite(verse.reference) : false;
+
+  const chipClass = cn(
+    buttonVariants({ variant: "outline", size: "sm" }),
+    "h-8 gap-1 rounded-full border-shepherd-sage/25 bg-background/70 px-2.5 text-[11px] font-medium text-foreground hover:bg-shepherd-meadow/35",
+  );
+
+  return (
+    <div className="mt-2 space-y-1.5">
+      <div className="flex flex-wrap gap-1.5">
+        <button type="button" className={chipClass} onClick={onContinue}>
+          <Mic className="size-3" />
+          Continue talking
+        </button>
+        <button
+          type="button"
+          className={chipClass}
+          onClick={() => {
+            const snippet = text.trim().slice(0, 500);
+            addEntry({
+              content: snippet,
+              reference: verse?.reference,
+              chatSnippet: snippet.slice(0, 200),
+            });
+            logActivity({
+              type: "journal",
+              title: "Journaled from chat",
+              subtitle: snippet.slice(0, 80),
+            });
+            setSavedNote("Saved to your journal");
+            track("chat_followup", { action: "journal" });
+            window.setTimeout(() => router.push("/journal"), 400);
+          }}
+        >
+          <NotebookPen className="size-3" />
+          Journal this
+        </button>
+        {verse && (
+          <button
+            type="button"
+            className={chipClass}
+            disabled={alreadySaved}
+            onClick={() => {
+              addFavorite({
+                reference: verse.reference,
+                text: verse.text,
+              });
+              logActivity({
+                type: "verse_saved",
+                title: "Saved a verse",
+                subtitle: verse.reference,
+              });
+              setSavedNote(`Saved ${verse.reference}`);
+              track("chat_followup", { action: "save_verse" });
+            }}
+          >
+            <BookMarked className="size-3" />
+            {alreadySaved ? "Verse saved" : "Save this verse"}
+          </button>
+        )}
+        <button
+          type="button"
+          className={chipClass}
+          onClick={() => {
+            track("chat_followup", { action: "pray" });
+            onPray();
+          }}
+        >
+          Pray with me
+        </button>
+      </div>
+      {savedNote && (
+        <p className="text-[10px] text-shepherd-sage" role="status">
+          {savedNote}
+        </p>
+      )}
+    </div>
+  );
+}
+
 export function ChatInterface() {
   const isClient = useIsClient();
   const [input, setInput] = useState("");
@@ -216,6 +340,8 @@ export function ChatInterface() {
   const messagesHydratedRef = useRef(false);
   const holdSentRef = useRef(false);
   const holdingRef = useRef(false);
+
+  const holdMicRef = useRef<HTMLDivElement>(null);
 
   const setStoredMessages = useChatStore((s) => s.setMessages);
   const clearStoredMessages = useChatStore((s) => s.clearMessages);
@@ -508,7 +634,7 @@ export function ChatInterface() {
     if (!isClient) return `${SHEP_FULL_NAME} is here for you`;
     if (welcomeMood && messages.length === 0)
       return `I'm Shep the Shepherd — hold to speak or tap the mic.`;
-    if (holding || isListening) return "I'm listening…";
+    if (holding || isListening) return "Holding your words with care…";
     if (isSpeaking) return "Speaking to you…";
     if (pendingRevealId) return "Preparing to speak…";
     if (awaitingFirstToken) return "Waiting for Shep's first word…";
@@ -546,6 +672,24 @@ export function ChatInterface() {
 
   const showClearChat = isClient && messages.length > 0;
   const showHoldToSpeak = isClient && sttSupported && !continuousListen;
+  const showReplyActions =
+    isClient &&
+    status === "ready" &&
+    !holding &&
+    !pendingRevealId &&
+    !!lastAssistant?.id &&
+    lastAssistant.role === "assistant";
+
+  const handleContinueTalking = useCallback(() => {
+    setShowTextInput(false);
+    holdMicRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [setShowTextInput]);
+
+  const handlePrayFollowUp = useCallback(() => {
+    sendUserMessage(
+      "Pray with me about what we just talked about. Keep it gentle and short.",
+    );
+  }, [sendUserMessage]);
 
   return (
     <div className="flex h-[calc(100dvh-6.5rem)] flex-col">
@@ -623,20 +767,33 @@ export function ChatInterface() {
                 (message.id === pendingRevealId ||
                   (hideStreamingAssistant && message.id === lastAssistant?.id));
               if (withholdSpeech) return null;
+              const isLatestAssistant =
+                showReplyActions &&
+                message.id === lastAssistant?.id &&
+                !isUser;
               return (
                 <div
                   key={message.id}
                   className={cn("flex", isUser ? "justify-end" : "justify-start")}
                 >
-                  <div
-                    className={cn(
-                      "max-w-[90%] rounded-2xl px-3 py-2 text-sm leading-relaxed",
-                      isUser
-                        ? "bg-shepherd-sage text-primary-foreground"
-                        : "border border-shepherd-meadow/40 bg-card",
+                  <div className="max-w-[92%]">
+                    <div
+                      className={cn(
+                        "rounded-2xl px-3.5 py-2.5 text-sm leading-relaxed",
+                        isUser
+                          ? "bg-shepherd-sage text-primary-foreground"
+                          : "border border-shepherd-sage/15 bg-shepherd-cream/40 dark:bg-card",
+                      )}
+                    >
+                      <p className="whitespace-pre-wrap">{text}</p>
+                    </div>
+                    {isLatestAssistant && (
+                      <ReplyFollowUps
+                        text={text}
+                        onContinue={handleContinueTalking}
+                        onPray={handlePrayFollowUp}
+                      />
                     )}
-                  >
-                    <p className="whitespace-pre-wrap">{text}</p>
                   </div>
                 </div>
               );
@@ -645,9 +802,11 @@ export function ChatInterface() {
           {isClient && (awaitingFirstToken || showSpeechWait) && (
             <FirstTokenIndicator
               label={
-                pendingRevealId || (deferSpeechReveal && isStreaming)
-                  ? "Preparing to speak…"
-                  : "Waiting for Shep's first word…"
+                holding
+                  ? "Holding your words with care…"
+                  : pendingRevealId || (deferSpeechReveal && isStreaming)
+                    ? "Preparing to speak…"
+                    : "Waiting for Shep's first word…"
               }
             />
           )}
@@ -687,16 +846,18 @@ export function ChatInterface() {
         <GuidedFlowPanel onSendStep={sendUserMessage} />
 
         {showHoldToSpeak && !(isClient && showTextInput) && (
-          <HoldToSpeakButton
-            disabled={isLoading}
-            holding={holding}
-            listening={isListening}
-            onHoldStart={handleHoldStart}
-            onHoldEnd={handleHoldEnd}
-          />
+          <div ref={holdMicRef}>
+            <HoldToSpeakButton
+              disabled={isLoading}
+              holding={holding}
+              listening={isListening}
+              onHoldStart={handleHoldStart}
+              onHoldEnd={handleHoldEnd}
+            />
+          </div>
         )}
 
-        <div className="flex items-center justify-between gap-2 px-1">
+        <div className="flex items-center justify-between gap-2 px-0.5">
           <label className="flex cursor-pointer items-center gap-1.5 text-xs text-muted-foreground">
             <Radio className="size-3.5 text-shepherd-sage" />
             Continuous
@@ -710,13 +871,14 @@ export function ChatInterface() {
             />
           </label>
           <Button
-            variant="ghost"
+            type="button"
+            variant="outline"
             size="sm"
-            className="h-7 gap-1 px-2 text-xs"
+            className="h-9 gap-1.5 rounded-xl border-shepherd-sage/30 bg-background/70 px-3 text-xs font-medium hover:bg-shepherd-meadow/35"
             disabled={!isClient}
             onClick={() => setShowTextInput(!showTextInput)}
           >
-            <Keyboard className="size-3.5" />
+            <Keyboard className="size-3.5 text-shepherd-sage" />
             {isClient && showTextInput ? "Hide keyboard" : "Type instead"}
           </Button>
         </div>

@@ -49,6 +49,40 @@ export function buildMoodChatContext(moodLabel: string, prompt: string): ShepCha
   };
 }
 
+export function buildDevotionChatContext(input: {
+  theme: string;
+  title: string;
+  verse: { reference: string; text: string };
+  shepQuestion: string;
+  userAnswer?: string;
+}): ShepChatContext {
+  const verseSnippet =
+    input.verse.text.length > 280
+      ? `${input.verse.text.slice(0, 280)}…`
+      : input.verse.text;
+
+  let initialMessage = `I just finished a ${input.theme} devotion (“${input.title}”).
+
+The verse was ${input.verse.reference}:
+"${verseSnippet}"
+
+Shep asked me: "${input.shepQuestion}"`;
+
+  const answer = input.userAnswer?.trim();
+  if (answer) {
+    initialMessage += `\n\nMy reflection so far:\n${answer.slice(0, 500)}`;
+  }
+
+  initialMessage +=
+    "\n\nWalk with me — help me go a little deeper, gently, and pray if it fits.";
+
+  return {
+    label: `After devotion · ${input.theme}`,
+    reference: input.verse.reference,
+    initialMessage,
+  };
+}
+
 export function buildFlowChatContext(flowTitle: string, stepPrompt: string): ShepChatContext {
   return {
     label: flowTitle,

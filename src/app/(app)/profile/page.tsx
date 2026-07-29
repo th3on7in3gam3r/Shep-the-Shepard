@@ -4,7 +4,7 @@ import { DashboardView } from "@/components/dashboard/dashboard-view";
 export default function ProfilePage() {
   return (
     <>
-      <PageHeader title="Your Journey" subtitle="Faith stats & quick access" />
+      <PageHeader title="Your Journey" subtitle="Your walk with Shep" />
       <DashboardView />
     </>
   );

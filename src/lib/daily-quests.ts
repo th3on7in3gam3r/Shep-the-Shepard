@@ -8,6 +8,8 @@ export type QuestTask = {
   label: string;
   description: string;
   href: string;
+  /** Lucide icon name key for UI cards */
+  icon: "book-open" | "sun" | "message-circle" | "pen-line";
 };
 
 export const DAILY_QUEST_TASKS: readonly QuestTask[] = [
@@ -16,24 +18,28 @@ export const DAILY_QUEST_TASKS: readonly QuestTask[] = [
     label: "Read today's verse",
     description: "Pause with the Verse of the Day",
     href: "/",
+    icon: "book-open",
   },
   {
     id: "word",
     label: "Spend time in the Word",
     description: "Read the Bible or a devotion",
     href: "/devotions",
+    icon: "sun",
   },
   {
     id: "connect",
     label: "Connect with Shep",
     description: "Share what's on your heart in chat",
     href: "/chat",
+    icon: "message-circle",
   },
   {
     id: "reflect",
     label: "Reflect & journal",
     description: "Answer Shep's question or write a journal line",
-    href: "/devotions",
+    href: "/journal",
+    icon: "pen-line",
   },
 ] as const;
 

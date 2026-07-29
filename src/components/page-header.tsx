@@ -19,6 +19,15 @@ export function PageHeader({
   showLenny,
 }: PageHeaderProps) {
   const showAvatar = showShep ?? showLenny ?? false;
+  const hasTitle = Boolean(title?.trim());
+
+  if (!hasTitle && !showAvatar) {
+    return (
+      <header className="flex items-center justify-end pb-2">
+        <ThemeToggle />
+      </header>
+    );
+  }
 
   return (
     <header className="flex items-start justify-between gap-3 pb-4">
@@ -28,9 +37,11 @@ export function PageHeader({
           <p className="text-xs font-medium uppercase tracking-wider text-shepherd-sage">
             {APP_NAME}
           </p>
-          <h1 className="truncate font-heading text-xl font-semibold text-foreground">
-            {title}
-          </h1>
+          {hasTitle && (
+            <h1 className="truncate font-heading text-xl font-semibold text-foreground">
+              {title}
+            </h1>
+          )}
           {subtitle && (
             <p className="text-sm text-muted-foreground">{subtitle}</p>
           )}

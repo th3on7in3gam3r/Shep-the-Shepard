@@ -12,7 +12,12 @@ import { formatRelativeTime } from "@/lib/dashboard-utils";
 import { useCommunityStore } from "@/stores/community-store";
 import { useFavoritesStore } from "@/stores/favorites-store";
 
-export function CommunityFeed() {
+type CommunityFeedProps = {
+  /** Softer visual weight when shown below personal hub sections. */
+  demoted?: boolean;
+};
+
+export function CommunityFeed({ demoted = false }: CommunityFeedProps) {
   const posts = useCommunityStore((s) => s.posts);
   const addPost = useCommunityStore((s) => s.addPost);
   const removePost = useCommunityStore((s) => s.removePost);
@@ -36,10 +41,26 @@ export function CommunityFeed() {
 
   return (
     <div className="space-y-4">
-      <Card className="border-shepherd-sky/25 bg-shepherd-cream/20 dark:bg-card">
+      <Card
+        className={
+          demoted
+            ? "border-shepherd-sage/10 bg-muted/20 shadow-none dark:bg-card/60"
+            : "border-shepherd-sky/25 bg-shepherd-cream/20 dark:bg-card"
+        }
+      >
         <CardHeader className="pb-2">
-          <CardTitle className="flex items-center gap-2 text-base">
-            <Sparkles className="size-4 text-shepherd-sage" />
+          <CardTitle
+            className={
+              demoted
+                ? "flex items-center gap-2 text-sm font-medium text-muted-foreground"
+                : "flex items-center gap-2 text-base"
+            }
+          >
+            <Sparkles
+              className={
+                demoted ? "size-3.5 text-muted-foreground" : "size-4 text-shepherd-sage"
+              }
+            />
             Community
             <Badge variant="outline" className="text-[10px] font-normal">
               Local only
@@ -75,7 +96,12 @@ export function CommunityFeed() {
             </div>
           )}
           <Button
-            className="w-full bg-shepherd-sage hover:bg-shepherd-sage/90"
+            className={
+              demoted
+                ? "w-full"
+                : "w-full bg-shepherd-sage hover:bg-shepherd-sage/90"
+            }
+            variant={demoted ? "outline" : "default"}
             onClick={handleShare}
             disabled={!reference.trim() || !text.trim()}
           >
