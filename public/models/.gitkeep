@@ -1,0 +1,2 @@
+# Optional: drop a `.glb` sheep model here as `shep.glb` to replace the built-in procedural 3D Shep.
+# The app uses a performance-friendly procedural model by default (no external asset required).
