@@ -248,17 +248,17 @@ export function ShepIllustration({
             />
           </g>
 
-          {/* Visor “mouth” / speaking indicator */}
+          {/* Visor LED mouth — opens while speaking */}
           {mood === "speaking" ? (
             <g className="animate-shep-mouth-open" style={{ transformOrigin: "50px 44px" }}>
               <rect
-                x="44"
-                y="42"
-                width="12"
-                height="5"
-                rx="1.5"
+                x="43"
+                y="41.5"
+                width="14"
+                height="6"
+                rx="2"
                 fill={D.visor}
-                opacity="0.9"
+                opacity="0.95"
               />
             </g>
           ) : (
@@ -269,7 +269,7 @@ export function ShepIllustration({
               height={mood === "happy" ? 3 : 2}
               rx="1"
               fill={D.visor}
-              opacity="0.55"
+              opacity={mood === "happy" ? 0.75 : 0.55}
             />
           )}
         </g>

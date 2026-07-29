@@ -355,6 +355,7 @@ export function ShepProceduralModel({ mood, isSpeaking }: ShepProceduralModelPro
   const earLRef = useRef<THREE.Group>(null);
   const earRRef = useRef<THREE.Group>(null);
   const mouthRef = useRef<THREE.Mesh>(null);
+  const mouthMatRef = useRef<THREE.MeshStandardMaterial>(null);
   const visorIntensityRef = useRef(1.2);
 
   const [textures, setTextures] = useState<{
@@ -430,6 +431,14 @@ export function ShepProceduralModel({ mood, isSpeaking }: ShepProceduralModelPro
     const listenBoost = mood === "listening" ? 0.15 : 0;
     visorIntensityRef.current = base + thinkingBoost + listenBoost;
 
+    if (mouthMatRef.current) {
+      mouthMatRef.current.emissiveIntensity = speaking
+        ? 0.85 + Math.abs(Math.sin(t * 14)) * 0.55
+        : mood === "happy"
+          ? 0.45
+          : 0.25;
+    }
+
     if (antennaTipMat) {
       antennaTipMat.emissiveIntensity =
         mood === "thinking" ? 0.7 + Math.sin(t * 3) * 0.25 : 0.35;
@@ -479,12 +488,6 @@ export function ShepProceduralModel({ mood, isSpeaking }: ShepProceduralModelPro
           <latheGeometry args={[neckProfile, 64]} />
           <meshStandardMaterial {...chassisMatProps} />
         </mesh>
-
-        {/* Speaking “mouth” proxy — invisible scale target for applyShepMotion */}
-        <mesh ref={mouthRef} position={[0, 0.55, 0.32]} visible={false}>
-          <sphereGeometry args={[0.02, 4, 4]} />
-          <meshBasicMaterial />
-        </mesh>
       </group>
 
       <group ref={headRef} position={[0, 0.6, 0]}>
@@ -512,6 +515,20 @@ export function ShepProceduralModel({ mood, isSpeaking }: ShepProceduralModelPro
             showHeart={showHeart}
           />
         </group>
+
+        {/* LED mouth — scale.y driven by applyShepMotion while speaking */}
+        <mesh ref={mouthRef} position={[0, -0.09, 0.265]} castShadow>
+          <boxGeometry args={[0.08, 0.028, 0.012]} />
+          <meshStandardMaterial
+            ref={mouthMatRef}
+            color={D.visor}
+            emissive={D.visor}
+            emissiveIntensity={0.25}
+            roughness={0.35}
+            metalness={0.1}
+            toneMapped={false}
+          />
+        </mesh>
 
         <RobotEar position={[-0.29, 0, 0]} isLeft tipRef={earLRef} scale={1.3} />
         <RobotEar position={[0.29, 0, 0]} tipRef={earRRef} scale={1.3} />
