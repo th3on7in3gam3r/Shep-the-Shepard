@@ -1,6 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type MouseEvent,
+  type PointerEvent,
+} from "react";
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
 import {
@@ -97,7 +105,7 @@ function AmbientToggleButton({ enabled, onToggle }: AmbientToggleButtonProps) {
   );
 }
 
-type HoldToSpeakButtonProps = {
+type HoldMicProps = {
   disabled: boolean;
   holding: boolean;
   listening: boolean;
@@ -105,51 +113,89 @@ type HoldToSpeakButtonProps = {
   onHoldEnd: () => void;
 };
 
+function attachHoldPointerHandlers(
+  onHoldStart: () => void,
+  onHoldEnd: () => void,
+) {
+  return {
+    onPointerDown: (e: PointerEvent<HTMLButtonElement>) => {
+      if (e.pointerType === "mouse" && e.button !== 0) return;
+      e.preventDefault();
+      e.currentTarget.setPointerCapture(e.pointerId);
+      onHoldStart();
+    },
+    onPointerUp: (e: PointerEvent<HTMLButtonElement>) => {
+      if (e.currentTarget.hasPointerCapture(e.pointerId)) {
+        e.currentTarget.releasePointerCapture(e.pointerId);
+      }
+      onHoldEnd();
+    },
+    onPointerCancel: onHoldEnd,
+    onLostPointerCapture: onHoldEnd,
+    onContextMenu: (e: MouseEvent) => e.preventDefault(),
+  };
+}
+
+/** Full-width hold control for voice mode (keyboard hidden). */
 function HoldToSpeakButton({
   disabled,
   holding,
   listening,
   onHoldStart,
   onHoldEnd,
-}: HoldToSpeakButtonProps) {
+}: HoldMicProps) {
+  const active = holding || listening;
   return (
     <button
       type="button"
       disabled={disabled}
       suppressHydrationWarning
-      aria-label={holding || listening ? "Release to send message" : "Hold to speak"}
-      onPointerDown={(e) => {
-        if (e.pointerType === "mouse" && e.button !== 0) return;
-        e.preventDefault();
-        onHoldStart();
-      }}
-      onPointerUp={onHoldEnd}
-      onPointerLeave={onHoldEnd}
-      onPointerCancel={onHoldEnd}
-      onContextMenu={(e) => e.preventDefault()}
+      aria-label={active ? "Release to send message" : "Hold to speak"}
+      {...attachHoldPointerHandlers(onHoldStart, onHoldEnd)}
       className={cn(
-        "flex w-full flex-col items-center gap-1 rounded-2xl py-5 transition-all touch-none select-none",
+        "flex w-full items-center justify-center gap-2 rounded-xl py-2.5 transition-all touch-none select-none",
         "[touch-action:none] [-webkit-user-select:none] [-webkit-touch-callout:none]",
-        holding || listening
-          ? "scale-[0.98] bg-shepherd-sage text-primary-foreground shadow-inner"
-          : "bg-gradient-to-br from-shepherd-sage to-shepherd-sky text-primary-foreground shadow-md active:scale-[0.98]",
+        active
+          ? "scale-[0.99] bg-shepherd-sage text-primary-foreground shadow-inner"
+          : "bg-gradient-to-br from-shepherd-sage to-shepherd-sky text-primary-foreground shadow-md active:scale-[0.99]",
         disabled && "opacity-60",
       )}
     >
-      <Mic className={cn("size-8", (holding || listening) && "animate-pulse")} />
+      <Mic className={cn("size-5", active && "animate-pulse")} />
       <span className="text-sm font-semibold">
-        {holding || listening ? "Release to send" : "Hold to Speak"}
+        {active ? "Release to send" : "Hold to Speak"}
       </span>
     </button>
   );
 }
 
-function HoldToSpeakPlaceholder() {
+/** Compact mic beside the text field in typing mode. */
+function CompactHoldMic({
+  disabled,
+  holding,
+  listening,
+  onHoldStart,
+  onHoldEnd,
+}: HoldMicProps) {
+  const active = holding || listening;
   return (
-    <div
-      className="flex h-[88px] w-full flex-col items-center justify-center gap-1 rounded-2xl bg-muted/25"
-      aria-hidden
-    />
+    <button
+      type="button"
+      disabled={disabled}
+      suppressHydrationWarning
+      aria-label={active ? "Release to send message" : "Hold to speak"}
+      {...attachHoldPointerHandlers(onHoldStart, onHoldEnd)}
+      className={cn(
+        "flex size-10 shrink-0 items-center justify-center rounded-xl transition-all touch-none select-none",
+        "[touch-action:none] [-webkit-user-select:none] [-webkit-touch-callout:none]",
+        active
+          ? "bg-shepherd-sage text-primary-foreground shadow-inner"
+          : "bg-gradient-to-br from-shepherd-sage to-shepherd-sky text-primary-foreground shadow-sm",
+        disabled && "opacity-60",
+      )}
+    >
+      <Mic className={cn("size-4", active && "animate-pulse")} />
+    </button>
   );
 }
 
@@ -167,6 +213,7 @@ export function ChatInterface() {
   const contextConsumedRef = useRef(false);
   const messagesHydratedRef = useRef(false);
   const holdSentRef = useRef(false);
+  const holdingRef = useRef(false);
 
   const setStoredMessages = useChatStore((s) => s.setMessages);
   const clearStoredMessages = useChatStore((s) => s.clearMessages);
@@ -355,17 +402,16 @@ export function ChatInterface() {
   const handleVoiceFinal = useCallback(
     (text: string) => {
       if (!text.trim()) return;
-      const combined = pendingSendRef.current
-        ? `${pendingSendRef.current} ${text}`.trim()
-        : text.trim();
-      pendingSendRef.current = combined;
-      setLiveTranscript(combined);
       if (continuousListen) {
-        sendUserMessage(combined);
+        sendUserMessage(text.trim());
         pendingSendRef.current = "";
         setLiveTranscript("");
-      } else if (!holding && !holdSentRef.current) {
-        sendUserMessage(combined);
+        return;
+      }
+      // Hold mode: pendingSendRef is kept current via onInterim (full session text).
+      if (!holding && !holdSentRef.current) {
+        const toSend = pendingSendRef.current.trim() || text.trim();
+        sendUserMessage(toSend);
         pendingSendRef.current = "";
         setLiveTranscript("");
       }
@@ -402,10 +448,13 @@ export function ChatInterface() {
 
   const handleHoldStart = () => {
     if (!sttSupported || isLoading) return;
+    if (holdingRef.current) return;
+    holdingRef.current = true;
     holdSentRef.current = false;
     setHolding(true);
     stopSpeaking();
     pendingSendRef.current = "";
+    setLiveTranscript("");
     startHoldListening({
       onFinal: handleVoiceFinal,
       onInterim: (t) => {
@@ -416,7 +465,8 @@ export function ChatInterface() {
   };
 
   const handleHoldEnd = () => {
-    if (!holding) return;
+    if (!holdingRef.current) return;
+    holdingRef.current = false;
     setHolding(false);
     endHoldListening();
     if (pendingSendRef.current.trim()) {
@@ -622,12 +672,12 @@ export function ChatInterface() {
         <p className="px-1 text-xs text-destructive">{error?.message ?? sttError}</p>
       )}
 
-      {/* Voice-first composer */}
-      <div className="mt-2 shrink-0 space-y-2 border-t border-border/60 pt-2.5">
+      {/* Voice / type composer */}
+      <div className="mt-2 shrink-0 space-y-1.5 border-t border-border/60 pt-2">
         <ChatContextBanner />
         <GuidedFlowPanel onSendStep={sendUserMessage} />
 
-        {showHoldToSpeak ? (
+        {showHoldToSpeak && !(isClient && showTextInput) && (
           <HoldToSpeakButton
             disabled={isLoading}
             holding={holding}
@@ -635,8 +685,6 @@ export function ChatInterface() {
             onHoldStart={handleHoldStart}
             onHoldEnd={handleHoldEnd}
           />
-        ) : (
-          <HoldToSpeakPlaceholder />
         )}
 
         <div className="flex items-center justify-between gap-2 px-1">
@@ -665,7 +713,16 @@ export function ChatInterface() {
         </div>
 
         {isClient && showTextInput && (
-          <form onSubmit={handleSubmit} className="flex gap-2">
+          <form onSubmit={handleSubmit} className="flex items-end gap-2">
+            {sttSupported && !continuousListen && (
+              <CompactHoldMic
+                disabled={isLoading}
+                holding={holding}
+                listening={isListening}
+                onHoldStart={handleHoldStart}
+                onHoldEnd={handleHoldEnd}
+              />
+            )}
             <Textarea
               value={input}
               onChange={(e) => setInput(e.target.value)}
@@ -676,13 +733,13 @@ export function ChatInterface() {
                 }
               }}
               placeholder="Type a message to Shep…"
-              rows={2}
-              className="min-h-10 resize-none text-sm"
+              rows={1}
+              className="min-h-10 max-h-28 resize-none text-sm"
             />
             <Button
               type="submit"
               disabled={isLoading || !input.trim()}
-              className="shrink-0 self-end bg-shepherd-sage hover:bg-shepherd-sage/90"
+              className="h-10 shrink-0 bg-shepherd-sage hover:bg-shepherd-sage/90"
             >
               Send
             </Button>

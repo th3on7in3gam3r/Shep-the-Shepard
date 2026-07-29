@@ -27,14 +27,25 @@ function getSpeechRecognition(): SpeechRecognitionConstructor | null {
 
 type ListenOptions = {
   continuous?: boolean;
+  /**
+   * Keep finals across phrases until stop (hold-to-speak).
+   * When false (Continuous mode), each final utterance is delivered then cleared.
+   */
+  accumulateSession?: boolean;
   onInterim?: (text: string) => void;
   onFinal?: (text: string) => void;
 };
+
+const SOFT_ERRORS = new Set(["no-speech", "audio-capture"]);
 
 const emptySubscribe = () => () => {};
 
 function getSpeechSupportedSnapshot() {
   return !!getSpeechRecognition();
+}
+
+function joinTranscript(finals: string, interim: string) {
+  return [finals.trim(), interim.trim()].filter(Boolean).join(" ");
 }
 
 export function useSpeechRecognition() {
@@ -51,35 +62,51 @@ export function useSpeechRecognition() {
   const recognitionRef = useRef<SpeechRecognitionInstance | null>(null);
   const optionsRef = useRef<ListenOptions>({});
   const continuousRef = useRef(false);
+  const accumulateRef = useRef(false);
   const shouldRestartRef = useRef(false);
+  /** Accumulated final phrases for the current listening session. */
+  const finalsRef = useRef("");
 
   const bindRecognition = useCallback((recognition: SpeechRecognitionInstance) => {
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       let interim = "";
-      let final = "";
+      let newFinal = "";
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
         if (result.isFinal) {
-          final += result[0].transcript;
+          newFinal += result[0].transcript;
         } else {
           interim += result[0].transcript;
         }
       }
-      if (interim) {
-        setInterimTranscript(interim);
-        optionsRef.current.onInterim?.(interim);
+
+      if (newFinal) {
+        const chunk = newFinal.trim();
+        if (accumulateRef.current) {
+          finalsRef.current = joinTranscript(finalsRef.current, chunk);
+          setTranscript(finalsRef.current);
+          setInterimTranscript("");
+          // Chunk for API symmetry; live text comes from onInterim with full session.
+          optionsRef.current.onFinal?.(chunk);
+          optionsRef.current.onInterim?.(finalsRef.current);
+        } else {
+          setTranscript(chunk);
+          setInterimTranscript("");
+          finalsRef.current = "";
+          optionsRef.current.onFinal?.(chunk);
+        }
       }
-      if (final) {
-        const trimmed = final.trim();
-        setTranscript(trimmed);
-        setInterimTranscript("");
-        optionsRef.current.onFinal?.(trimmed);
+
+      if (interim) {
+        const full = joinTranscript(finalsRef.current, interim);
+        setInterimTranscript(interim.trim());
+        optionsRef.current.onInterim?.(full);
       }
     };
 
     recognition.onerror = (event) => {
       if (event.error === "aborted") return;
-      if (event.error === "no-speech" && continuousRef.current) {
+      if (SOFT_ERRORS.has(event.error) && continuousRef.current) {
         shouldRestartRef.current = true;
         return;
       }
@@ -125,6 +152,7 @@ export function useSpeechRecognition() {
   const stopListening = useCallback(() => {
     shouldRestartRef.current = false;
     continuousRef.current = false;
+    accumulateRef.current = false;
     recognitionRef.current?.stop();
     setIsListening(false);
   }, []);
@@ -141,9 +169,12 @@ export function useSpeechRecognition() {
       setError(null);
       setTranscript("");
       setInterimTranscript("");
+      finalsRef.current = "";
 
       const continuous = options?.continuous ?? false;
+      const accumulateSession = options?.accumulateSession ?? false;
       continuousRef.current = continuous;
+      accumulateRef.current = accumulateSession;
       shouldRestartRef.current = continuous;
       optionsRef.current = { ...options, onFinal };
 
@@ -161,10 +192,14 @@ export function useSpeechRecognition() {
     [createRecognition, stopListening],
   );
 
-  /** Hold-to-speak: call on pointer down */
+  /** Hold-to-speak: continuous + session accumulate while held. */
   const startHoldListening = useCallback(
-    (options?: Omit<ListenOptions, "continuous">) => {
-      startListening(options?.onFinal, { ...options, continuous: false });
+    (options?: Omit<ListenOptions, "continuous" | "accumulateSession">) => {
+      startListening(options?.onFinal, {
+        ...options,
+        continuous: true,
+        accumulateSession: true,
+      });
     },
     [startListening],
   );
