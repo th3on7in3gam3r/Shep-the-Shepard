@@ -18,7 +18,6 @@ export function SavedVersesView() {
   const favorites = useFavoritesStore((s) => s.favorites);
   const removeFavorite = useFavoritesStore((s) => s.removeFavorite);
   const updateFavoriteTag = useFavoritesStore((s) => s.updateFavoriteTag);
-  const getTags = useFavoritesStore((s) => s.getTags);
   const logActivity = useActivityStore((s) => s.logActivity);
 
   const [filterTag, setFilterTag] = useState<string | null>(null);
@@ -26,7 +25,13 @@ export function SavedVersesView() {
   const [editingTagId, setEditingTagId] = useState<string | null>(null);
   const [tagInput, setTagInput] = useState("");
 
-  const tags = getTags();
+  const tags = useMemo(() => {
+    const set = new Set<string>();
+    for (const f of favorites) {
+      if (f.tag) set.add(f.tag);
+    }
+    return [...set].sort();
+  }, [favorites]);
 
   const filtered = useMemo(() => {
     let list = filterTag
@@ -36,8 +41,8 @@ export function SavedVersesView() {
     if (q) {
       list = list.filter(
         (f) =>
-          f.reference.toLowerCase().includes(q) ||
-          f.text.toLowerCase().includes(q) ||
+          f.reference?.toLowerCase().includes(q) ||
+          f.text?.toLowerCase().includes(q) ||
           f.tag?.toLowerCase().includes(q),
       );
     }

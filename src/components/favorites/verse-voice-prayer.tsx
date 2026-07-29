@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Mic, Pause, Play, Square, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useVoiceRecorder } from "@/hooks/use-voice-recorder";
@@ -25,9 +25,20 @@ function formatDuration(ms: number): string {
 }
 
 export function VerseVoicePrayer({ reference, favoriteId }: VerseVoicePrayerProps) {
-  const prayers = useVersePrayerStore((s) => s.getPrayersForReference(reference));
+  // Select the raw list — filtering in the selector returns a new array each
+  // call and can infinite-loop under Zustand's default Object.is compare.
+  const allPrayers = useVersePrayerStore((s) => s.prayers);
   const addPrayer = useVersePrayerStore((s) => s.addPrayer);
   const removePrayer = useVersePrayerStore((s) => s.removePrayer);
+  const prayers = useMemo(() => {
+    const key = reference.trim().toLowerCase();
+    return allPrayers
+      .filter((p) => p.reference.toLowerCase() === key)
+      .sort(
+        (a, b) =>
+          new Date(b.recordedAt).getTime() - new Date(a.recordedAt).getTime(),
+      );
+  }, [allPrayers, reference]);
   const { isRecording, error, isSupported, startRecording, stopRecording } =
     useVoiceRecorder();
 
